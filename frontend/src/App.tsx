@@ -1,16 +1,15 @@
 import "./App.css";
 import { GameCanvas } from "./components/GameCanvas";
 import { GameControls } from "./components/GameControls";
-import { useGameStore } from "./store/gameStore";
+import { useGameStore, type GameStore } from "./store/gameStore";
 
 function App() {
-  const isPlaying = useGameStore((state) => state.isPlaying);
+  const isPlaying = useGameStore((state: GameStore) => state.isPlaying);
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>Capymorph</h1>
-        <p>Educational game to teach language-learners about morphemes</p>
       </header>
 
       <main className="game-container">
