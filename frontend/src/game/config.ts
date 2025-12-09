@@ -6,8 +6,11 @@ export const createGameConfig = (
 ): Phaser.Types.Core.GameConfig => ({
   type: Phaser.AUTO,
   parent,
-  width: 1200,
-  height: 900,
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    width: "100%",
+    height: "100%",
+  },
   backgroundColor: "#1a1a2e",
   physics: {
     default: "arcade",

@@ -32,11 +32,14 @@ export function GameCanvas({ isPlaying }: GameCanvasProps) {
       ref={containerRef}
       id="game-container"
       style={{
-        width: "800px",
-        height: "600px",
-        border: "2px solid #4a4a6a",
-        borderRadius: "8px",
+        width: "calc(100% - 40px)",
+        flex: 1,
+        minHeight: 0,
         overflow: "hidden",
+        borderRadius: "12px",
+        border: "2px solid rgba(255, 255, 255, 0.1)",
+        boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)",
+        pointerEvents: "auto",
       }}
     />
   );

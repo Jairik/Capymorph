@@ -18,7 +18,7 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>Use arrow keys to move the player and collect items!</p>
+        <p>Use arrow keys to adventure through the maze to rescue Morphy's kid!</p>
       </footer>
     </div>
   );
