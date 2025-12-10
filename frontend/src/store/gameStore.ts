@@ -5,6 +5,7 @@ export interface GameState {
   level: number;
   isPlaying: boolean;
   isPaused: boolean;
+  isLevelComplete: boolean;
 }
 
 interface GameActions {
@@ -16,6 +17,8 @@ interface GameActions {
   pauseGame: () => void;
   resumeGame: () => void;
   resetGame: () => void;
+  completeLevel: () => void;
+  nextLevel: () => void;
 }
 
 export type GameStore = GameState & GameActions;
@@ -26,14 +29,17 @@ export const useGameStore = create<GameStore>((set) => ({
   level: 1,
   isPlaying: false,
   isPaused: false,
+  isLevelComplete: false,
 
   // Actions
   setScore: (score) => set({ score }),
   incrementScore: (points) => set((state) => ({ score: state.score + points })),
   setLevel: (level) => set({ level }),
   incrementLevel: () => set((state) => ({ level: state.level + 1 })),
-  startGame: () => set({ isPlaying: true, isPaused: false, score: 0, level: 1 }),
+  startGame: () => set({ isPlaying: true, isPaused: false, score: 0, level: 1, isLevelComplete: false }),
   pauseGame: () => set({ isPaused: true }),
   resumeGame: () => set({ isPaused: false }),
-  resetGame: () => set({ score: 0, level: 1, isPlaying: false, isPaused: false }),
+  resetGame: () => set({ score: 0, level: 1, isPlaying: false, isPaused: false, isLevelComplete: false }),
+  completeLevel: () => set({ isLevelComplete: true, isPaused: true }),
+  nextLevel: () => set((state) => ({ level: state.level + 1, isLevelComplete: false, isPaused: false })),
 }));

@@ -261,3 +261,30 @@
   width: 100%;
 }
 
+/* Level Complete Modal */
+.level-complete-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.level-complete-text {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+  color: #d7ccc8;
+}
+
+.level-complete-score {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffb74d;
+  margin-bottom: 20px;
+}
+
+.btn-next-level {
+  background: linear-gradient(135deg, #a5d6a7, #66bb6a);
+  color: #2c1810;
+  width: 100%;
+  padding: 12px;
+  font-size: 1.1rem;
+}
+

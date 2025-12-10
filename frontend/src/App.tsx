@@ -1,6 +1,7 @@
 import "./App.css";
 import { GameCanvas } from "./components/GameCanvas";
 import { GameControls } from "./components/GameControls";
+import { LevelCompleteModal } from "./components/LevelCompleteModal";
 import { useGameStore, type GameStore } from "./store/gameStore";
 
 function App() {
@@ -16,6 +17,8 @@ function App() {
         <GameControls />
         <GameCanvas isPlaying={isPlaying} />
       </main>
+
+      <LevelCompleteModal />
 
       <footer className="app-footer">
         <p>Use arrow keys to adventure through the maze to rescue Morphy's kid!</p>

@@ -31,6 +31,7 @@ export function GameCanvas({ isPlaying }: GameCanvasProps) {
     <div
       ref={containerRef}
       id="game-container"
+      tabIndex={0}
       style={{
         width: "calc(100% - 40px)",
         flex: 1,

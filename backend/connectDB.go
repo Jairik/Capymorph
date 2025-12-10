@@ -47,5 +47,5 @@ func main() {
 	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
 		panic(err)
 	}
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
+	fmt.Println("Successfully connected to MongoDB!")
 }
