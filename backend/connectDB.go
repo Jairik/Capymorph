@@ -1,6 +1,6 @@
-package main
-
 /* Helper to establish an initial connection to the DB */
+
+package main
 
 // Necessary modules
 import (
@@ -15,7 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
-func main() {
+// ConnectDB establishes a connection to MongoDB and returns the client
+func ConnectDB() (*mongo.Client, error) {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
@@ -34,18 +35,14 @@ func main() {
 	client, err := mongo.Connect(opts)
 	
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	defer func() {
-		if err = client.Disconnect(context.TODO()); err != nil {
-		panic(err)
-		}
-	}()
 
 	// Send a ping to confirm a successful connection
 	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
-		panic(err)
+		return nil, err
 	}
+	
 	fmt.Println("Successfully connected to MongoDB!")
+	return client, nil
 }

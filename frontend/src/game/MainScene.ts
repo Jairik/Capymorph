@@ -20,7 +20,6 @@ export class MainScene extends Phaser.Scene {
   private door: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody | null = null;
   private currentLevel: number = 1;
   private readonly TILE_SIZE = 40;
-  private lastRotation = -Math.PI / 2; // facing up by default
 
   constructor() {
     super({ key: "MainScene" });
@@ -228,7 +227,7 @@ export class MainScene extends Phaser.Scene {
       doorPos.y * this.TILE_SIZE + this.TILE_SIZE / 2,
       "babyMorphy"
     );
-    this.door.setDisplaySize(this.TILE_SIZE, this.TILE_SIZE);
+    this.door.setDisplaySize(this.TILE_SIZE * 1.5, this.TILE_SIZE * 1.5);
     this.door.setFrame(this.getFrameIndex("babyMorphy", 0, 0));
     this.door.setImmovable(true);
     
@@ -287,12 +286,12 @@ export class MainScene extends Phaser.Scene {
 
     Phaser.Utils.Array.Shuffle(availableSpots);
 
-    const itemCount = 5 + Math.floor(level * 1.5);
+    const itemCount = 1 + level;  // Set the total number of items based on level
     
     // Limit items to available spots
     const actualItemCount = Math.min(itemCount, availableSpots.length);
     const cheetoTargetCount = Math.ceil(actualItemCount * 0.6); // bias toward cheetos
-    const minCheetoDistance = 6; // Manhattan distance to keep cheetos spread out
+    const minCheetoDistance = 12; // Manhattan distance to keep cheetos spread out
 
     const cheetoSpots: { x: number; y: number }[] = [];
     const remainingSpots: { x: number; y: number }[] = [];
@@ -493,15 +492,18 @@ export class MainScene extends Phaser.Scene {
     playerBody.setVelocity(vx, vy);
 
     if (moving) {
-      const angle = Math.atan2(vy, vx) + Math.PI / 2;
-      this.player.setRotation(angle);
-      this.lastRotation = angle;
+      if (vx > 0) {
+        this.player.setFlipX(false);
+      } else if (vx < 0) {
+        this.player.setFlipX(true);
+      }
       this.player.anims.play("morphy-forward", true);
     } else {
       playerBody.setVelocity(0, 0);
       this.player.anims.stop();
       this.player.setFrame(this.getFrameIndex("morphy", 4, 0));
-      this.player.setRotation(this.lastRotation);
     }
+
+    this.player.setRotation(0); // keep upright; rely on flipX for facing
   }
 }
