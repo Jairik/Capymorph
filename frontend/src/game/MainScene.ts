@@ -1,24 +1,26 @@
 import Phaser from "phaser";
 import { useGameStore } from "../store/gameStore";
-import { generateMazeEller } from "./mazeUtils";
+import { generateMazeEller, findPath } from "./mazeUtils";
 
 // Import assets
 import wallImg from "../assets/brick-wall-texture.jpg";
 import floorImg from "../assets/pixel-grass-texture.jpg";
 import cheetosImg from "../assets/cheetos-pixel-art-bad-lol.png";
+import mountainDewImg from "../assets/mountaindew-pixel-art.png";
 import morphyImg from "../assets/Capybara-Spritesheet.png";
 import babyMorphyImg from "../assets/Baby-Capybara-Spritesheet.png";
 
 export class MainScene extends Phaser.Scene {
-  private player: Phaser.GameObjects.Rectangle | null = null;
+  private player: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody | null = null;
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   private scoreText: Phaser.GameObjects.Text | null = null;
   private collectibles: Phaser.GameObjects.Group | null = null;
   private map: Phaser.Tilemaps.Tilemap | null = null;
   private layer: Phaser.Tilemaps.TilemapLayer | null = null;
-  private door: Phaser.GameObjects.Rectangle | null = null;
+  private door: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody | null = null;
   private currentLevel: number = 1;
   private readonly TILE_SIZE = 40;
+  private lastRotation = -Math.PI / 2; // facing up by default
 
   constructor() {
     super({ key: "MainScene" });
@@ -28,6 +30,7 @@ export class MainScene extends Phaser.Scene {
     this.load.image("wall", wallImg);
     this.load.image("floor", floorImg);
     this.load.image("cheetos", cheetosImg);
+    this.load.image("mountainDew", mountainDewImg);
     this.load.spritesheet("morphy", morphyImg, {
       frameWidth: 32,
       frameHeight: 32,
@@ -42,10 +45,7 @@ export class MainScene extends Phaser.Scene {
     // Generate tileset once
     this.generateTileset();
 
-    // Set up keyboard input
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-    }
+    this.createAnimations();
 
     // Create score text (fixed to camera)
     this.scoreText = this.add.text(16, 16, "Score: 0", {
@@ -94,6 +94,26 @@ export class MainScene extends Phaser.Scene {
     console.log("Starting Level...");
     const { level } = useGameStore.getState();
     this.currentLevel = level;
+
+    // Clear previous physics colliders/overlaps to avoid dangling refs to destroyed objects
+    this.physics.world.colliders.destroy();
+
+    // Re-enable and reset keyboard input so arrows work after modal interactions/scene pauses
+    if (this.input.keyboard) {
+      this.input.keyboard.enabled = true;
+      this.input.keyboard.resetKeys();
+      this.input.keyboard.clearCaptures();
+      this.input.keyboard.addCapture([
+        Phaser.Input.Keyboard.KeyCodes.LEFT,
+        Phaser.Input.Keyboard.KeyCodes.RIGHT,
+        Phaser.Input.Keyboard.KeyCodes.UP,
+        Phaser.Input.Keyboard.KeyCodes.DOWN,
+      ]);
+      this.cursors = this.input.keyboard.createCursorKeys();
+
+      // Ensure canvas regains focus (retry a few times in case modal just unmounted)
+      this.focusCanvasWithRetry();
+    }
 
     // Clean up previous level
     if (this.map) {
@@ -203,30 +223,26 @@ export class MainScene extends Phaser.Scene {
     // Place Door at the top (first available spot)
     const doorPos = emptySpots[0]; // Top-most spot
     
-    const objectSize = this.TILE_SIZE * 0.75;
-
-    this.door = this.add.rectangle(
-        doorPos.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-        doorPos.y * this.TILE_SIZE + this.TILE_SIZE / 2,
-        objectSize,
-        objectSize,
-        0xff0000 // Red
+    this.door = this.physics.add.sprite(
+      doorPos.x * this.TILE_SIZE + this.TILE_SIZE / 2,
+      doorPos.y * this.TILE_SIZE + this.TILE_SIZE / 2,
+      "babyMorphy"
     );
-    this.physics.add.existing(this.door);
+    this.door.setDisplaySize(this.TILE_SIZE, this.TILE_SIZE);
+    this.door.setFrame(this.getFrameIndex("babyMorphy", 0, 0));
+    this.door.setImmovable(true);
     
     // Place Player at the bottom (last available spot)
     const playerPos = emptySpots[emptySpots.length - 1]; // Bottom-most spot
     
-    this.player = this.add.rectangle(
-        playerPos.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-        playerPos.y * this.TILE_SIZE + this.TILE_SIZE / 2,
-        objectSize,
-        objectSize,
-        0x00ff00
+    this.player = this.physics.add.sprite(
+      playerPos.x * this.TILE_SIZE + this.TILE_SIZE / 2,
+      playerPos.y * this.TILE_SIZE + this.TILE_SIZE / 2,
+      "morphy"
     );
-    this.physics.add.existing(this.player);
-    const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    playerBody.setCollideWorldBounds(true);
+    this.player.setDisplaySize(this.TILE_SIZE, this.TILE_SIZE);
+    this.player.setFrame(this.getFrameIndex("morphy", 4, 0));
+    this.player.setCollideWorldBounds(true);
     
     // Camera follow
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -247,49 +263,90 @@ export class MainScene extends Phaser.Scene {
         );
     }
 
-    // Place Collectibles (randomly in remaining spots)
+    // Place Collectibles (on the path to solution)
     this.collectibles = this.add.group();
     
-    // Filter out used spots (roughly)
-    const availableSpots = emptySpots.slice(5, emptySpots.length - 5); // Avoid very top and very bottom
+    // Find path from player to door
+    const path = findPath(rawMazeData, playerPos, doorPos);
+    
+    // Filter out start and end positions from potential collectible spots
+    // Also remove some spots near start/end to avoid clutter
+    const pathSpots = path.filter(p => 
+        (p.x !== playerPos.x || p.y !== playerPos.y) && 
+        (p.x !== doorPos.x || p.y !== doorPos.y)
+    );
+
+    // If path is too short, fallback to random empty spots (unlikely)
+    let availableSpots = pathSpots;
+    if (availableSpots.length < 5) {
+        availableSpots = emptySpots.filter(p => 
+            (p.x !== playerPos.x || p.y !== playerPos.y) && 
+            (p.x !== doorPos.x || p.y !== doorPos.y)
+        );
+    }
+
     Phaser.Utils.Array.Shuffle(availableSpots);
 
     const itemCount = 5 + Math.floor(level * 1.5);
     
-    for (let i = 0; i < itemCount; i++) {
-      if (availableSpots.length === 0) break;
-      const spot = availableSpots.pop();
-      if (spot) {
-        const type = Math.random() > 0.5 ? 2 : 3; // 2: Cheetos, 3: Rectangle
-        
-        let item: Phaser.GameObjects.GameObject;
-        const collectibleSize = this.TILE_SIZE * 0.5;
-        if (type === 2) {
-            // Cheetos
-            const sprite = this.add.image(
-                spot.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-                spot.y * this.TILE_SIZE + this.TILE_SIZE / 2,
-                "cheetos"
-            );
-            // Make cheetos significantly bigger
-            sprite.setDisplaySize(this.TILE_SIZE * 0.9, this.TILE_SIZE * 0.9);
-            sprite.setData("type", "cheetos");
-            item = sprite;
-        } else {
-            // Rectangle
-            item = this.add.rectangle(
-                spot.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-                spot.y * this.TILE_SIZE + this.TILE_SIZE / 2,
-                collectibleSize,
-                collectibleSize,
-                0x0000ff // Blue
-            );
-            item.setData("type", "rectangle");
-        }
-        
-        this.physics.add.existing(item);
-        this.collectibles.add(item);
+    // Limit items to available spots
+    const actualItemCount = Math.min(itemCount, availableSpots.length);
+    const cheetoTargetCount = Math.ceil(actualItemCount * 0.6); // bias toward cheetos
+    const minCheetoDistance = 6; // Manhattan distance to keep cheetos spread out
+
+    const cheetoSpots: { x: number; y: number }[] = [];
+    const remainingSpots: { x: number; y: number }[] = [];
+
+    const manhattan = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+    for (const spot of availableSpots) {
+      if (
+        cheetoSpots.length < cheetoTargetCount &&
+        cheetoSpots.every((s) => manhattan(s, spot) >= minCheetoDistance)
+      ) {
+        cheetoSpots.push(spot);
+      } else {
+        remainingSpots.push(spot);
       }
+    }
+
+    // If we could not place enough spaced cheetos, backfill from remaining spots
+    while (cheetoSpots.length < cheetoTargetCount && remainingSpots.length > 0) {
+      cheetoSpots.push(remainingSpots.shift()!);
+    }
+
+    const allSpots = [...cheetoSpots, ...remainingSpots].slice(0, actualItemCount);
+
+    for (let i = 0; i < allSpots.length; i++) {
+      const spot = allSpots[i];
+      if (!spot) continue;
+
+      const useCheeto = i < cheetoSpots.length;
+      let item: Phaser.GameObjects.GameObject;
+      const collectibleSize = this.TILE_SIZE * 0.9;
+      if (useCheeto) {
+        const sprite = this.add.image(
+          spot.x * this.TILE_SIZE + this.TILE_SIZE / 2,
+          spot.y * this.TILE_SIZE + this.TILE_SIZE / 2,
+          "cheetos"
+        );
+        sprite.setDisplaySize(this.TILE_SIZE * 0.9, this.TILE_SIZE * 0.9);
+        sprite.setData("type", "cheetos");
+        item = sprite;
+      } else {
+        const sprite = this.add.image(
+          spot.x * this.TILE_SIZE + this.TILE_SIZE / 2,
+          spot.y * this.TILE_SIZE + this.TILE_SIZE / 2,
+          "mountainDew"
+        );
+        sprite.setDisplaySize(collectibleSize, collectibleSize);
+        sprite.setData("type", "mountainDew");
+        item = sprite;
+      }
+
+      this.physics.add.existing(item);
+      this.collectibles.add(item);
     }
 
     // Add overlap for collectibles
@@ -302,6 +359,62 @@ export class MainScene extends Phaser.Scene {
         this
       );
     }
+  }
+
+  private focusCanvasWithRetry(): void {
+    const canvas = this.game.canvas as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    if (!canvas.hasAttribute("tabindex")) {
+      canvas.setAttribute("tabindex", "0");
+    }
+
+    const tryFocus = () => {
+      canvas.focus();
+    };
+
+    // Try immediately and then a couple more times after short delays
+    tryFocus();
+    this.time.delayedCall(50, tryFocus);
+    this.time.delayedCall(150, tryFocus);
+  }
+
+  private getFrameIndex(sheetKey: string, row: number, col: number): number {
+    const texture = this.textures.get(sheetKey);
+    const source = texture.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+    const frameWidth = 32; // spritesheets are loaded with 32x32 frames
+    const cols = Math.max(1, Math.floor(source.width / frameWidth));
+    const frameTotal = texture.frameTotal;
+    const idx = row * cols + col;
+    return Math.min(Math.max(0, idx), frameTotal - 1);
+  }
+
+  private createAnimations(): void {
+    const ensure = (
+      key: string,
+      sheetKey: string,
+      row: number,
+      frameRate: number = 8
+    ) => {
+      if (this.anims.exists(key)) return;
+      const texture = this.textures.get(sheetKey);
+      const source = texture.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+      const frameWidth = 32;
+      const cols = Math.max(1, Math.floor(source.width / frameWidth));
+      const start = row * cols;
+      const frameTotal = texture.frameTotal;
+      if (start >= frameTotal) return; // row outside sheet, skip
+      const end = Math.min(start + cols - 1, frameTotal - 1);
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(sheetKey, { start, end }),
+        frameRate,
+        repeat: -1,
+      });
+    };
+
+    ensure("morphy-forward", "morphy", 4, 10); // row 5 (1-based)
+    ensure("morphy-backward", "morphy", 5, 10); // row 6 (1-based)
   }
 
   private reachDoor(
@@ -338,6 +451,7 @@ export class MainScene extends Phaser.Scene {
           this.scene.pause();
         } else {
           this.scene.resume();
+          this.focusCanvasWithRetry();
         }
       }
       
@@ -366,21 +480,28 @@ export class MainScene extends Phaser.Scene {
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     const speed = 200;
 
-    // Handle movement
-    if (this.cursors.left.isDown) {
-      playerBody.setVelocityX(-speed);
-    } else if (this.cursors.right.isDown) {
-      playerBody.setVelocityX(speed);
-    } else {
-      playerBody.setVelocityX(0);
-    }
+    let vx = 0;
+    let vy = 0;
 
-    if (this.cursors.up.isDown) {
-      playerBody.setVelocityY(-speed);
-    } else if (this.cursors.down.isDown) {
-      playerBody.setVelocityY(speed);
+    if (this.cursors.left.isDown) vx -= speed;
+    if (this.cursors.right.isDown) vx += speed;
+    if (this.cursors.up.isDown) vy -= speed;
+    if (this.cursors.down.isDown) vy += speed;
+
+    const moving = vx !== 0 || vy !== 0;
+
+    playerBody.setVelocity(vx, vy);
+
+    if (moving) {
+      const angle = Math.atan2(vy, vx) + Math.PI / 2;
+      this.player.setRotation(angle);
+      this.lastRotation = angle;
+      this.player.anims.play("morphy-forward", true);
     } else {
-      playerBody.setVelocityY(0);
+      playerBody.setVelocity(0, 0);
+      this.player.anims.stop();
+      this.player.setFrame(this.getFrameIndex("morphy", 4, 0));
+      this.player.setRotation(this.lastRotation);
     }
   }
 }

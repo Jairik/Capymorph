@@ -103,5 +103,107 @@ export function generateMazeEller(width: number, height: number): number[][] {
     }
   }
 
+  // Enforce solid borders, leaving only start (bottom) and exit (top) openings
+  for (let x = 0; x < cols; x++) {
+    maze[0][x] = 1;
+    maze[rows - 1][x] = 1;
+  }
+  for (let y = 0; y < rows; y++) {
+    maze[y][0] = 1;
+    maze[y][cols - 1] = 1;
+  }
+
+  const pickOddColumn = (col: number) => {
+    const clamped = Math.max(1, Math.min(col, cols - 2));
+    return clamped % 2 === 0 ? clamped - 1 : clamped;
+  };
+
+  const exitX = pickOddColumn(Math.floor(cols / 2));
+  const startX = exitX; // align start with exit column for straighter path options
+
+  // Carve openings and ensure they connect to the maze interior
+  maze[0][exitX] = 0;
+  maze[1][exitX] = 0;
+  maze[rows - 1][startX] = 0;
+  maze[rows - 2][startX] = 0;
+
   return maze;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export function findPath(
+  maze: number[][],
+  start: Point,
+  end: Point
+): Point[] {
+  const rows = maze.length;
+  const cols = maze[0].length;
+
+  // Priority queue for A*
+  const openSet: { pos: Point; f: number }[] = [];
+  openSet.push({ pos: start, f: 0 });
+
+  const cameFrom = new Map<string, Point>();
+  const gScore = new Map<string, number>();
+  const fScore = new Map<string, number>();
+
+  const posKey = (p: Point) => `${p.x},${p.y}`;
+
+  gScore.set(posKey(start), 0);
+  fScore.set(posKey(start), Math.abs(start.x - end.x) + Math.abs(start.y - end.y));
+
+  while (openSet.length > 0) {
+    // Get node with lowest fScore
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift()!.pos;
+
+    if (current.x === end.x && current.y === end.y) {
+      // Reconstruct path
+      const path: Point[] = [current];
+      let curr = current;
+      while (cameFrom.has(posKey(curr))) {
+        curr = cameFrom.get(posKey(curr))!;
+        path.unshift(curr);
+      }
+      return path;
+    }
+
+    const neighbors = [
+      { x: current.x, y: current.y - 1 },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x - 1, y: current.y },
+      { x: current.x + 1, y: current.y },
+    ];
+
+    for (const neighbor of neighbors) {
+      // Check bounds and walls (0 is path, 1 is wall)
+      if (
+        neighbor.x >= 0 &&
+        neighbor.x < cols &&
+        neighbor.y >= 0 &&
+        neighbor.y < rows &&
+        maze[neighbor.y][neighbor.x] === 0
+      ) {
+        const tentativeGScore = (gScore.get(posKey(current)) ?? Infinity) + 1;
+
+        if (tentativeGScore < (gScore.get(posKey(neighbor)) ?? Infinity)) {
+          cameFrom.set(posKey(neighbor), current);
+          gScore.set(posKey(neighbor), tentativeGScore);
+          const h = Math.abs(neighbor.x - end.x) + Math.abs(neighbor.y - end.y);
+          const f = tentativeGScore + h;
+          fScore.set(posKey(neighbor), f);
+
+          if (!openSet.some((item) => item.pos.x === neighbor.x && item.pos.y === neighbor.y)) {
+            openSet.push({ pos: neighbor, f });
+          }
+        }
+      }
+    }
+  }
+
+  return []; // No path found
 }

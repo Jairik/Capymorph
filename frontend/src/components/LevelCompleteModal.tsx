@@ -21,7 +21,7 @@ export function LevelCompleteModal() {
           window.focus();
         }
       }
-    }, 50);
+    }, 100);
   };
 
   return (
