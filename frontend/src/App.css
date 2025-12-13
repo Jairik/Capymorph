@@ -1,7 +1,14 @@
+/* Import the pixelated font */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+body {
+    font-family: 'Press Start 2P', cursive;
 }
 
 .app {
@@ -15,7 +22,7 @@
   padding-top: 20px;
   background: linear-gradient(135deg, #4a2c2a 0%, #2c1810 100%);
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: 'Press Start 2P', cursive;
 }
 
 .app-header {
@@ -119,7 +126,7 @@
   margin-bottom: 20px;
   text-align: center;
   color: #d7ccc8;
-  font-size: 0.9rem;
+  font-size: 0.5rem;
   position: relative;
   z-index: 10;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -261,6 +268,12 @@
   width: 100%;
 }
 
+.btn-modal-close.disabled {
+  background: #555;
+  color: #ccc;
+  cursor: not-allowed;
+}
+
 /* Level Complete Modal */
 .level-complete-content {
   text-align: center;
@@ -268,13 +281,13 @@
 }
 
 .level-complete-text {
-  font-size: 1.2rem;
+  font-size: 0.8rem;
   margin-bottom: 10px;
   color: #d7ccc8;
 }
 
 .level-complete-score {
-  font-size: 1.5rem;
+  font-size: 1rem;
   font-weight: bold;
   color: #ffb74d;
   margin-bottom: 20px;
@@ -286,5 +299,85 @@
   width: 100%;
   padding: 12px;
   font-size: 1.1rem;
+}
+
+ .question-modal {
+  text-align: center;
+  opacity: .95;
+}
+
+.question-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #d7ccc8;
+}
+
+.question-modal .modal-body p:first-of-type {
+  font-size: 1.3rem;
+  color: #ffb74d;
+}
+
+.modal-note {
+  font-size: 0.9rem;
+  color: #a1887f;
+  opacity: 0.8;
+}
+
+.modal-error {
+  color: #ef9a9a;
+  font-weight: 600;
+}
+
+.question-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.question-text {
+  font-size: 0.8rem;
+  color: #ffffff;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.choice-button {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.choice-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.choice-button.selected {
+  border-color: #ffb74d;
+}
+
+.choice-button.correct {
+  background: rgba(102, 187, 106, 0.25);
+  border-color: #66bb6a;
+}
+
+.choice-button.wrong {
+  background: rgba(239, 83, 80, 0.2);
+  border-color: #ef5350;
+}
+
+.modal-status {
+  margin-top: 8px;
+  font-weight: 700;
+  color: #ffb74d;
 }
 

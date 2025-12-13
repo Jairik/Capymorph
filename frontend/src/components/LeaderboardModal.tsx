@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import "../App.css";
+import { useGameStore } from "../store/gameStore";
 
 interface LeaderboardEntry {
-  name: string;
+  username: string;
   score: number;
 }
 
@@ -14,42 +15,58 @@ interface LeaderboardModalProps {
 export function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("");
+  const currentScore = useGameStore((state) => state.score);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    const fetchLeaderboard = async () => {
       setLoading(true);
-      // TODO: Replace with actual endpoint fetch
-      // fetch('/api/leaderboard')
-      //   .then(res => res.json())
-      //   .then(data => setLeaderboard(data))
-      //   .finally(() => setLoading(false));
-      
-      // Mock data for now
-      setTimeout(() => {
-        setLeaderboard([
-          { name: "Player 1", score: 1000 },
-          { name: "Player 2", score: 800 },
-          { name: "Player 3", score: 600 },
-        ]);
+      setError(null);
+      try {
+        const res = await fetch("/api/leaderboards/10");
+        if (!res.ok) throw new Error(`Failed to load leaderboards (${res.status})`);
+        const data = (await res.json()) as LeaderboardEntry[];
+        setLeaderboard(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load leaderboards");
+        setLeaderboard([]);
+      } finally {
         setLoading(false);
-      }, 500);
-    }
+      }
+    };
+
+    fetchLeaderboard();
   }, [isOpen]);
 
-  const handleSaveScore = () => {
+  const handleSaveScore = async () => {
     if (!playerName.trim()) return;
-    
-    // TODO: Replace with actual save endpoint (POST Request, return top 10 scores and current score's ranking)
-    console.log("Saving score for:", playerName);
-    
-    // Mock adding to list
-    setLeaderboard(prev => [
-      { name: playerName, score: 0 }, // Score would come from game store ideally
-      ...prev
-    ].sort((a, b) => b.score - a.score));
-    
-    setPlayerName("");
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/addScoreLeaderboards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: playerName.trim(), score: currentScore }),
+      });
+
+      if (!res.ok) throw new Error(`Failed to save score (${res.status})`);
+
+      // Refresh leaderboard after save
+      const boardRes = await fetch("/api/leaderboards/10");
+      if (!boardRes.ok) throw new Error(`Failed to reload leaderboards (${boardRes.status})`);
+      const data = (await boardRes.json()) as LeaderboardEntry[];
+      setLeaderboard(Array.isArray(data) ? data : []);
+
+      setPlayerName("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save score");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -73,9 +90,10 @@ export function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
               className="player-name-input"
             />
             <button onClick={handleSaveScore} className="btn btn-save-score">
-              Save Score
+              {saving ? "Saving..." : "Save Score"}
             </button>
           </div>
+          {error && <p className="modal-error">{error}</p>}
           {loading ? (
             <p>Loading...</p>
           ) : (
@@ -91,7 +109,7 @@ export function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
                 {leaderboard.map((entry, index) => (
                   <tr key={index}>
                     <td>{index + 1}</td>
-                    <td>{entry.name}</td>
+                    <td>{entry.username}</td>
                     <td>{entry.score}</td>
                   </tr>
                 ))}

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { useGameStore } from "../store/gameStore";
+import { useGameStore, type QuestionType } from "../store/gameStore";
 import { generateMazeEller, findPath } from "./mazeUtils";
 
 // Import assets
@@ -19,6 +19,7 @@ export class MainScene extends Phaser.Scene {
   private layer: Phaser.Tilemaps.TilemapLayer | null = null;
   private door: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody | null = null;
   private currentLevel: number = 1;
+  private pauseOverlay: Phaser.GameObjects.Container | null = null;
   private readonly TILE_SIZE = 40;
 
   constructor() {
@@ -46,11 +47,7 @@ export class MainScene extends Phaser.Scene {
 
     this.createAnimations();
 
-    // Create score text (fixed to camera)
-    this.scoreText = this.add.text(16, 16, "Score: 0", {
-      fontSize: "24px",
-      color: "#ffffff",
-    }).setScrollFactor(0).setDepth(100);
+    this.createPauseOverlay();
 
     // Listen to game state changes
     this.updateGameState();
@@ -141,17 +138,15 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Calculate dimensions
-    let mazeWidth = Math.floor(canvasWidth / this.TILE_SIZE);
+    let mazeWidth = Math.max(23, Math.floor(canvasWidth / this.TILE_SIZE));
     // Ensure width is odd for maze generation
-    if (mazeWidth % 2 === 0) mazeWidth -= 1;
-    // Minimum width
-    if (mazeWidth < 5) mazeWidth = 5;
+    if (mazeWidth % 2 === 0) mazeWidth += 1;
     
     const height = Math.floor(20 * Math.pow(1.25, level - 1));
 
-    // Calculate zoom to fit width exactly
+    // Calculate zoom to fit width, then nudge slightly larger for a closer view
     const totalMazeWidthPixels = mazeWidth * this.TILE_SIZE;
-    const zoom = canvasWidth / totalMazeWidthPixels;
+    const zoom = (canvasWidth / totalMazeWidthPixels) * 1.05;
     
     console.log(`Level ${level}: Canvas=${canvasWidth}, MazeWidth=${mazeWidth}, Zoom=${zoom}`);
 
@@ -270,9 +265,13 @@ export class MainScene extends Phaser.Scene {
     
     // Filter out start and end positions from potential collectible spots
     // Also remove some spots near start/end to avoid clutter
+    const minDoorBuffer = 3;
+    const farFromDoor = (p: { x: number; y: number }) => Math.abs(p.x - doorPos.x) + Math.abs(p.y - doorPos.y) > minDoorBuffer;
+
     const pathSpots = path.filter(p => 
-        (p.x !== playerPos.x || p.y !== playerPos.y) && 
-        (p.x !== doorPos.x || p.y !== doorPos.y)
+      (p.x !== playerPos.x || p.y !== playerPos.y) && 
+      (p.x !== doorPos.x || p.y !== doorPos.y) &&
+      farFromDoor(p)
     );
 
     // If path is too short, fallback to random empty spots (unlikely)
@@ -280,7 +279,8 @@ export class MainScene extends Phaser.Scene {
     if (availableSpots.length < 5) {
         availableSpots = emptySpots.filter(p => 
             (p.x !== playerPos.x || p.y !== playerPos.y) && 
-            (p.x !== doorPos.x || p.y !== doorPos.y)
+        (p.x !== doorPos.x || p.y !== doorPos.y) &&
+        farFromDoor(p)
         );
     }
 
@@ -424,15 +424,47 @@ export class MainScene extends Phaser.Scene {
       completeLevel();
   }
 
+  private createPauseOverlay(): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+
+    const overlay = this.add.container(0, 0);
+    const bg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
+    bg.setScrollFactor(0);
+
+    const text = this.add.text(width / 2, height / 2, "Paused", {
+      fontSize: "28px",
+      color: "#ffb74d",
+      fontStyle: "bold",
+    }).setOrigin(0.5, 0.5);
+    text.setScrollFactor(0);
+
+    overlay.add([bg, text]);
+    overlay.setDepth(2000);
+    overlay.setVisible(false);
+
+    this.pauseOverlay = overlay;
+  }
+
+  private setPauseOverlayVisible(show: boolean): void {
+    if (this.pauseOverlay) {
+      this.pauseOverlay.setVisible(show);
+    }
+  }
+
   private collectItem(
     _player: Phaser.GameObjects.GameObject,
     collectible: Phaser.GameObjects.GameObject
   ): void {
+    const questionType = collectible.getData("type") as QuestionType | undefined;
     collectible.destroy();
 
     // Update Zustand store
-    const { incrementScore } = useGameStore.getState();
+    const { incrementScore, openQuestionModal } = useGameStore.getState();
     incrementScore(10);
+    if (questionType) {
+      openQuestionModal(questionType);
+    }
 
     // Update local score display
     const { score } = useGameStore.getState();
@@ -442,15 +474,17 @@ export class MainScene extends Phaser.Scene {
   private updateGameState(): void {
     // Subscribe to game state changes
     const unsubscribe = useGameStore.subscribe((state, prevState) => {
-      if (!this.scene || !this.sys) return;
+      if (!this.scene || !this.sys || !this.scene.manager) return;
 
       // Only toggle pause/resume if the state actually changed
       if (state.isPaused !== prevState.isPaused) {
         if (state.isPaused) {
           this.scene.pause();
+          this.setPauseOverlayVisible(true);
         } else {
           this.scene.resume();
           this.focusCanvasWithRetry();
+          this.setPauseOverlayVisible(false);
         }
       }
       
@@ -475,6 +509,16 @@ export class MainScene extends Phaser.Scene {
 
   update(): void {
     if (!this.player || !this.cursors) return;
+
+    // Freeze movement when the question modal is open
+    const { isQuestionModalOpen } = useGameStore.getState();
+    if (isQuestionModalOpen) {
+      const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
+      playerBody.setVelocity(0, 0);
+      this.player.anims.stop();
+      this.player.setFrame(this.getFrameIndex("morphy", 4, 0));
+      return;
+    }
 
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     const speed = 200;

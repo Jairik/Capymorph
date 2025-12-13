@@ -1,11 +1,16 @@
 import { create } from "zustand";
 
+export type QuestionType = "cheetos" | "mountainDew";
+
 export interface GameState {
   score: number;
   level: number;
   isPlaying: boolean;
   isPaused: boolean;
   isLevelComplete: boolean;
+  isQuestionModalOpen: boolean;
+  currentQuestion: QuestionType | null;
+  questionModalCount: number;
 }
 
 interface GameActions {
@@ -19,6 +24,8 @@ interface GameActions {
   resetGame: () => void;
   completeLevel: () => void;
   nextLevel: () => void;
+  openQuestionModal: (question: QuestionType) => void;
+  closeQuestionModal: () => void;
 }
 
 export type GameStore = GameState & GameActions;
@@ -30,6 +37,9 @@ export const useGameStore = create<GameStore>((set) => ({
   isPlaying: false,
   isPaused: false,
   isLevelComplete: false,
+  isQuestionModalOpen: false,
+  currentQuestion: null,
+  questionModalCount: 0,
 
   // Actions
   setScore: (score) => set({ score }),
@@ -42,4 +52,12 @@ export const useGameStore = create<GameStore>((set) => ({
   resetGame: () => set({ score: 0, level: 1, isPlaying: false, isPaused: false, isLevelComplete: false }),
   completeLevel: () => set({ isLevelComplete: true, isPaused: true }),
   nextLevel: () => set((state) => ({ level: state.level + 1, isLevelComplete: false, isPaused: false })),
+  openQuestionModal: (question) =>
+    set((state) => ({
+      isQuestionModalOpen: true,
+      currentQuestion: question,
+      questionModalCount: state.questionModalCount + 1,
+    })),
+  closeQuestionModal: () =>
+    set({ isQuestionModalOpen: false, currentQuestion: null }),
 }));
