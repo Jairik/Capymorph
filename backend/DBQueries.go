@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -80,4 +81,21 @@ func GetLeaderboards(client *mongo.Client, numPlayers int) ([]LeaderboardEntry, 
 
 	// Return the leaderboard entries
 	return leaderboards, nil
+}
+
+// AddScoreToLeaderboards inserts a (username, score) entry and returns the user's rank.
+func AddScoreToLeaderboards(client *mongo.Client, username string, score int) (int64, error) {
+	collection := client.Database("capymorphDB").Collection("leaderboards")
+
+	_, err := collection.InsertOne(context.TODO(), LeaderboardEntry{Username: username, Score: score})
+	if err != nil {
+		return 0, err
+	}
+
+	countAbove, err := collection.CountDocuments(context.TODO(), bson.M{"score": bson.M{"$gt": score}})
+	if err != nil {
+		return 0, err
+	}
+
+	return countAbove + 1, nil
 }

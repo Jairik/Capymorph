@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -67,7 +68,30 @@ func main() {
 
 	// Add a score and name to the leaderboards endpoint
 	r.POST("/api/addScoreLeaderboards", func(c *gin.Context) {
-		// TODO
+		type addScoreRequest struct {
+			Username string `json:"username"`
+			Score    int    `json:"score"`
+		}
+
+		var req addScoreRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "expected JSON body with username (string) and score (int)"})
+			return
+		}
+
+		req.Username = strings.TrimSpace(req.Username)
+		if req.Username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "username is required"})
+			return
+		}
+
+		rank, err := AddScoreToLeaderboards(client, req.Username, req.Score)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert score"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"rank": rank})
 	})
 
 	// Start the server on port 8080
