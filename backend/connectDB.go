@@ -5,9 +5,11 @@ package main
 // Necessary modules
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -17,32 +19,37 @@ import (
 
 // ConnectDB establishes a connection to MongoDB and returns the client
 func ConnectDB() (*mongo.Client, error) {
-	// Load .env file
+	// Load .env file (supports running from backend/ or repo root)
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
+		_ = godotenv.Load("backend/.env")
 	}
 
-	uri := os.Getenv("MONGODB_URI")
+	uri := strings.TrimSpace(os.Getenv("MONGODB_URI"))
 	if uri == "" {
-		log.Fatal("You must set your 'MONGODB_URI' environmental variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
+		return nil, errors.New("MONGODB_URI is not set; add it to your environment or backend/.env")
+	}
+	if strings.Contains(uri, "<db_password>") {
+		return nil, errors.New("MONGODB_URI still contains <db_password>; replace it with the real password (URL-encode special characters)")
 	}
 
 	// Set client options
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
-	
+
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(opts)
-	
+
 	if err != nil {
 		return nil, err
 	}
 
 	// Send a ping to confirm a successful connection
-	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
 		return nil, err
 	}
-	
+
 	fmt.Println("Successfully connected to MongoDB!")
 	return client, nil
 }

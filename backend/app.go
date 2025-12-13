@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,7 +48,12 @@ func main() {
 	// Retreive leaderboards endpoint
 	r.GET("/api/leaderboards/:numPlayers", func(c *gin.Context) {
 		// Pull numPlayers from URL param
-		numPlayers int = c.Param("numPlayers")
+		numPlayersStr := c.Param("numPlayers")
+		numPlayers, err := strconv.Atoi(numPlayersStr)
+		if err != nil || numPlayers <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "numPlayers must be a positive integer"})
+			return
+		}
 		// Retrieve leaderboards from DB
 		leaderboards, err := GetLeaderboards(client, numPlayers)
 		// Return error if retrieval fails

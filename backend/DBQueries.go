@@ -9,13 +9,13 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Structure of a question document in MongoDB
+// Structure of a basic question document in MongoDB
 type Question struct {
-	ID       int      `bson:"id" json:"id"`
-	Text     string   `bson:"text" json:"text"`
-	Choices  []string `bson:"choices" json:"choices"`
-	Answer   string   `bson:"answer" json:"answer"`
-	Difficulty string `bson:"difficulty" json:"difficulty"`
+	ID         int      `bson:"id" json:"id"`
+	Text       string   `bson:"text" json:"text"`
+	Choices    []string `bson:"choices" json:"choices"`
+	Answer     string   `bson:"answer" json:"answer"`
+	Difficulty string   `bson:"difficulty" json:"difficulty"`
 }
 
 // Structure of a leaderboard entry
@@ -25,7 +25,7 @@ type LeaderboardEntry struct {
 }
 
 // Retrieves a random question from the MongoDB collection, returning a Question struct and error (if any)
-func GetRandomQuestion(*mongo.Client) (*Question, error) {
+func GetRandomQuestion(client *mongo.Client) (*Question, error) {
 	// Access the database and questions collection
 	collection := client.Database("capymorphDB").Collection("questions")
 
@@ -52,7 +52,7 @@ func GetRandomQuestion(*mongo.Client) (*Question, error) {
 		return nil, mongo.ErrNoDocuments
 	}
 
-	return &questions[0], nil  // Return the first (and only) question
+	return &questions[0], nil // Return the first (and only) question
 }
 
 // Retrieves the top N leaderboard entries from the MongoDB collection, returning a slice of LeaderboardEntry structs and error (if any)
