@@ -45,3 +45,5 @@ export function GameCanvas({ isPlaying }: GameCanvasProps) {
     />
   );
 }
+
+export default GameCanvas;

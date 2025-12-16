@@ -30,9 +30,9 @@ This project is built with a modern web stack, keeping performance and scalabili
 
 ## 🚀 Deployment
 
-*The website will be deployed soon! Watch this space for the live link.*
-
-[Link to Live Site - Coming Soon]
+<a href="https://capymorph.fly.dev/" target="_blank" rel="noopener noreferrer">
+  <img alt="Play CapyMorph" src="https://img.shields.io/badge/Play%20CapyMorph-Online-ff69b4?style=for-the-badge" />
+</a>
 
 ## 📸 Demos
 

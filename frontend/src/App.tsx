@@ -1,9 +1,12 @@
 import "./App.css";
-import { GameCanvas } from "./components/GameCanvas";
-import { GameControls } from "./components/GameControls";
+import { lazy, Suspense } from "react";
 import { useGameStore, type GameStore } from "./store/gameStore";
 import { LevelCompleteModal } from "./components/LevelCompleteModal";
 import { QuestionModal } from "./components/QuestionModal";
+
+// Lazy-loaded components (module scope)
+const LazyGameControls = lazy(() => import("./components/GameControls"));
+const LazyGameCanvas = lazy(() => import("./components/GameCanvas"));
 
 function App() {
   const isPlaying = useGameStore((state: GameStore) => state.isPlaying);
@@ -15,15 +18,26 @@ function App() {
       </header>
 
       <main className="game-container">
-        <GameControls />
-        <GameCanvas isPlaying={isPlaying} />
+        <Suspense fallback={<div>Loading Controls...</div>}>
+          <LazyGameControls />
+        </Suspense>
+        {/* Conditionally render GameCanvas only when playing */}
+        {isPlaying && (
+          <Suspense fallback={<div>Loading Game...</div>}>
+            <LazyGameCanvas isPlaying={isPlaying} />
+          </Suspense>
+        )}
+        
       </main>
 
       <LevelCompleteModal />
       <QuestionModal />
 
       <footer className="app-footer">
-        <p>Use the arrow keys to help Morphy adventure through the maze, collecting food while rescuing baby Morphy!</p>
+        <p>
+          Use the arrow keys to help Morphy adventure through the maze,
+          collecting food while rescuing baby Morphy!
+        </p>
       </footer>
     </div>
   );

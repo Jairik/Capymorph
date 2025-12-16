@@ -51,3 +51,4 @@ export function GameControls() {
   );
 }
 
+export default GameControls;

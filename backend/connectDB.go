@@ -5,6 +5,7 @@ package main
 // Necessary modules
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -19,9 +20,11 @@ import (
 
 // ConnectDB establishes a connection to MongoDB and returns the client
 func ConnectDB() (*mongo.Client, error) {
-	// Load .env file (supports running from backend/ or repo root)
-	if err := godotenv.Load(); err != nil {
-		_ = godotenv.Load("backend/.env")
+	// Load .env file (supports running from backend/ or repo root) (only in development)
+	if os.Getenv("FLY_APP_NAME") == "" {
+		if err := godotenv.Load(); err != nil {
+			_ = godotenv.Load("backend/.env")
+		}
 	}
 
 	uri := strings.TrimSpace(os.Getenv("MONGODB_URI"))
@@ -35,6 +38,10 @@ func ConnectDB() (*mongo.Client, error) {
 	// Set client options
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
+	// Atlas requires TLS; make TLS settings explicit to avoid platform differences.
+	opts.SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12})
+	// Give server selection a bit more room on cold start.
+	opts.SetServerSelectionTimeout(20 * time.Second)
 
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(opts)

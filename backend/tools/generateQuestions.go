@@ -121,7 +121,7 @@ func generateSampleQuestions() []interface{} {
 	// Generate a larger, balanced set.
 	// 8 families * 32 each = 256+ questions (guarantees each family appears many times).
 	const perFamily = 32
-	const minTotal = 256
+	const minTotal = 512  // Tweak up minimal total to ensure variety
 
 	irregularAdded := 0
 	for i := 0; i < perFamily; i++ {
@@ -214,6 +214,15 @@ func newLexicon(words []string) *Lexicon {
 			lex.Nouns = append(lex.Nouns, w)
 		}
 	}
+
+	// Fallback if wordbank didn't contain enough known categories
+	if len(lex.Verbs) == 0 {
+		lex.Verbs = verbs
+	}
+	if len(lex.Adjectives) == 0 {
+		lex.Adjectives = adjs
+	}
+
 	return lex
 }
 

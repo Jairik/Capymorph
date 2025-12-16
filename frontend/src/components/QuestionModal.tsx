@@ -1,12 +1,7 @@
 import "../App.css";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useGameStore, type QuestionType } from "../store/gameStore";
-
-const questionLabels: Record<QuestionType, string> = {
-  cheetos: "Cheetos",
-  mountainDew: "Mountain Dew",
-};
+import { useGameStore } from "../store/gameStore";
 
 type QuestionPayload = {
   ID: string;
